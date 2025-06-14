@@ -2,6 +2,7 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
+//go:build darwin || netbsd || freebsd || openbsd || dragonfly || linux
 // +build darwin netbsd freebsd openbsd dragonfly linux
 
 package evio
@@ -83,6 +84,7 @@ func (s *server) signalShutdown() {
 
 func serve(events Events, listeners []*listener) error {
 	// figure out the correct number of loops/goroutines to use.
+	//事件循环数量，用于单线程=1或者>1多核并发
 	numLoops := events.NumLoops
 	if numLoops <= 0 {
 		if numLoops == 0 {
@@ -99,6 +101,7 @@ func serve(events Events, listeners []*listener) error {
 	s.balance = events.LoadBalance
 	s.tch = make(chan time.Duration)
 
+	//如果启动的时候回调函数Serving不为空
 	//println("-- server starting")
 	if s.events.Serving != nil {
 		var svr Server
@@ -509,6 +512,8 @@ func (ln *listener) close() {
 	}
 }
 
+// 提取udp或者tcp或者unix domain套接字的文件描述符，获取他的fd，将其设置为非阻塞式的，提取os层面的
+// 便于直接操控，标准库下是阻塞式的，这种非阻塞式是为了支持更高效的事件驱动网络编程。
 // system takes the net listener and detaches it from it's parent
 // event loop, grabs the file descriptor, and makes it non-blocking.
 func (ln *listener) system() error {

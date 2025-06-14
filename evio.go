@@ -129,13 +129,14 @@ type Events struct {
 // Addresses should use a scheme prefix and be formatted
 // like `tcp://192.168.0.10:9851` or `unix://socket`.
 // Valid network schemes:
-//  tcp   - bind to both IPv4 and IPv6
-//  tcp4  - IPv4
-//  tcp6  - IPv6
-//  udp   - bind to both IPv4 and IPv6
-//  udp4  - IPv4
-//  udp6  - IPv6
-//  unix  - Unix Domain Socket
+//
+//	tcp   - bind to both IPv4 and IPv6
+//	tcp4  - IPv4
+//	tcp6  - IPv6
+//	udp   - bind to both IPv4 and IPv6
+//	udp4  - IPv4
+//	udp6  - IPv6
+//	unix  - Unix Domain Socket
 //
 // The "tcp" network scheme is assumed when one is not specified.
 func Serve(events Events, addr ...string) error {
@@ -153,6 +154,7 @@ func Serve(events Events, addr ...string) error {
 		if stdlibt {
 			stdlib = true
 		}
+		//当使用的是unix domain socket的时候，为了防止旧的文件存在引发错误，需要先删除老的路径防止监听失败
 		if ln.network == "unix" {
 			os.RemoveAll(ln.addr)
 		}
@@ -218,9 +220,9 @@ func (is *InputStream) End(data []byte) {
 }
 
 type listener struct {
-	ln      net.Listener
+	ln      net.Listener //用于支持tcp和unix domain socket的
 	lnaddr  net.Addr
-	pconn   net.PacketConn
+	pconn   net.PacketConn //用户支持udp的
 	opts    addrOpts
 	f       *os.File
 	fd      int
@@ -232,6 +234,7 @@ type addrOpts struct {
 	reusePort bool
 }
 
+// 为了从//"tcp://:50000?reuseport=true"提取出要构建的server协议，地址，是否端口复用，是否使用标准库的net.conn
 func parseAddr(addr string) (network, address string, opts addrOpts, stdlib bool) {
 	network = "tcp"
 	address = addr
@@ -244,6 +247,8 @@ func parseAddr(addr string) (network, address string, opts addrOpts, stdlib bool
 		stdlib = true
 		network = network[:len(network)-4]
 	}
+	//假如地址是这样
+	//"tcp://:50000?reuseport=true"
 	q := strings.Index(address, "?")
 	if q != -1 {
 		for _, part := range strings.Split(address[q+1:], "&") {
