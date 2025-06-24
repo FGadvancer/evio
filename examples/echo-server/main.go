@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/tidwall/evio"
@@ -21,10 +22,10 @@ func main() {
 	var reuseport bool
 	var stdlib bool
 
-	flag.IntVar(&port, "port", 5000, "server port")
+	flag.IntVar(&port, "port", 50000, "server port")
 	flag.BoolVar(&udp, "udp", false, "listen on udp")
 	flag.BoolVar(&reuseport, "reuseport", false, "reuseport (SO_REUSEPORT)")
-	flag.BoolVar(&trace, "trace", false, "print packets to console")
+	flag.BoolVar(&trace, "trace", true, "print packets to console")
 	flag.IntVar(&loops, "loops", 0, "num loops")
 	flag.BoolVar(&stdlib, "stdlib", false, "use stdlib")
 	flag.Parse()
@@ -41,9 +42,31 @@ func main() {
 		}
 		return
 	}
+	goBinFullPath := os.Getenv("HARMONY_GO_BIN")
+	if len(goBinFullPath) == 0 {
+		goBinFullPath = "go" // Default Go binary path
+		log.Println("not find env variable: HARMONY_GO_BIN ,Use Default:", goBinFullPath)
+	} else {
+		log.Println("find env variable: HARMONY_GO_BIN ,Use:", goBinFullPath)
+	}
+	events.Opened = func(c evio.Conn) (out []byte, opts evio.Options, action evio.Action) {
+		if trace {
+			log.Printf("opened %s", c.RemoteAddr())
+		}
+		if reuseport {
+			opts.ReuseInputBuffer = true
+		}
+		if stdlib {
+			c.SetContext("stdlib")
+		} else {
+			c.SetContext("evio")
+		}
+		return
+
+	}
 	events.Data = func(c evio.Conn, in []byte) (out []byte, action evio.Action) {
 		if trace {
-			log.Printf("%s", strings.TrimSpace(string(in)))
+			log.Printf("receive data from client %s", strings.TrimSpace(string(in)))
 		}
 		out = in
 		return

@@ -18,18 +18,24 @@ type Poll struct {
 
 // OpenPoll ...
 func OpenPoll() *Poll {
+	//创建Poll结构体
 	l := new(Poll)
+	//创建epoll fd
 	p, err := syscall.EpollCreate1(0)
 	if err != nil {
 		panic(err)
 	}
 	l.fd = p
+	//创建一个事件fd用于唤醒epoll
 	r0, _, e0 := syscall.Syscall(syscall.SYS_EVENTFD2, 0, 0, 0)
+	// 如果创建事件fd失败，关闭epoll fd并抛出错误
 	if e0 != 0 {
 		syscall.Close(p)
 		panic(err)
 	}
+	// 将事件fd转换为int类型
 	l.wfd = int(r0)
+	// 将事件fd添加到epoll中，监听读事件
 	l.AddRead(l.wfd)
 	return l
 }
@@ -89,6 +95,7 @@ func (p *Poll) AddReadWrite(fd int) {
 
 // AddRead ...
 func (p *Poll) AddRead(fd int) {
+	//
 	if err := syscall.EpollCtl(p.fd, syscall.EPOLL_CTL_ADD, fd,
 		&syscall.EpollEvent{Fd: int32(fd),
 			Events: syscall.EPOLLIN,
